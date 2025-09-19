@@ -17,18 +17,27 @@ public class UpdateManager : MonoBehaviour
     public string githubOwner = "VirtuaLabs-online";
     public string githubRepo = "HNode";
 
-    private string localVersion = Application.version; // numeric only
+    private string localVersion; // numeric only
     private string remoteVersion;
     private string remoteUrl;
 
+    private int savedIndex = 0;
+
     void Start()
     {
-        // Load saved branch selection
-        int savedIndex = PlayerPrefs.GetInt("SelectedBranch", 0);
+        logoVersionLabel.gameObject.SetActive(false);
+        savedIndex = PlayerPrefs.GetInt("SelectedBranch", 0);
         branchDropdown.value = savedIndex;
         branchDropdown.onValueChanged.Invoke(savedIndex);
         branchDropdown.onValueChanged.AddListener(OnBranchChanged);
 
+        localVersion = Application.version;
+
+        Invoke(nameof(FetchInitialRelease), 1f); // calls after 1 second
+    }
+
+    private void FetchInitialRelease()
+    {
         ChangeReleaseBranch(savedIndex);
     }
 
@@ -36,75 +45,59 @@ public class UpdateManager : MonoBehaviour
     {
         PlayerPrefs.SetInt("SelectedBranch", index);
         PlayerPrefs.Save();
-
         ChangeReleaseBranch(index);
     }
 
     private void ChangeReleaseBranch(int releaseBranch)
     {
-        if (releaseBranch == 0)
-        {
-            Debug.Log("Switched Target to stable");
-        }
-        else if (releaseBranch == 1)
-        {
-            Debug.Log("Switched Target to pre-release");
-        }
-        else
-        {
-            Debug.LogWarning("Unknown branch index");
-            return;
-        }
+        if (releaseBranch != 0 && releaseBranch != 1) return;
 
         logoVersionLabel.text = "HNode ver " + localVersion;
-        StartCoroutine(FetchLatestRelease(releaseBranch));
+        logoVersionLabel.gameObject.SetActive(true);
+
+        FetchLatestReleaseSync(releaseBranch); // blocking call
     }
 
-    private System.Collections.IEnumerator FetchLatestRelease(int branchIndex)
+    private void FetchLatestReleaseSync(int branchIndex)
     {
         string apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases";
-        using UnityWebRequest request = UnityWebRequest.Get(apiUrl);
-        request.SetRequestHeader("User-Agent", "UnityUpdateManager");
-        yield return request.SendWebRequest();
 
-        if (request.result != UnityWebRequest.Result.Success)
+        using (UnityWebRequest request = UnityWebRequest.Get(apiUrl))
         {
-            Debug.LogError("GitHub API request failed: " + request.error);
-            yield break;
-        }
+            request.SetRequestHeader("User-Agent", "UnityUpdateManager");
+            var operation = request.SendWebRequest();
 
-        try
-        {
-            // Parse JSON manually to pick the right release
-            var releases = JsonHelper.FromJson<GitHubRelease>(request.downloadHandler.text);
+            while (!operation.isDone) { } // block thread
 
-            GitHubRelease chosenRelease = null;
-            foreach (var r in releases)
+            if (request.result != UnityWebRequest.Result.Success) return;
+
+            try
             {
-                if (branchIndex == 0 && !r.prerelease)
+                var releases = JsonHelper.FromJson<GitHubRelease>(request.downloadHandler.text);
+
+                GitHubRelease chosenRelease = null;
+                foreach (var r in releases)
                 {
-                    chosenRelease = r;
-                    break;
+                    if (branchIndex == 0 && !r.prerelease)
+                    {
+                        chosenRelease = r;
+                        break;
+                    }
+                    if (branchIndex == 1)
+                    {
+                        chosenRelease = r;
+                        break;
+                    }
                 }
-                if (branchIndex == 1)
+
+                if (chosenRelease != null)
                 {
-                    // pre-release branch: pick the newest stable or prerelease
-                    chosenRelease = r;
-                    break;
+                    remoteVersion = chosenRelease.tag_name;
+                    remoteUrl = chosenRelease.html_url;
+                    VersionLookup(branchIndex);
                 }
             }
-
-            if (chosenRelease != null)
-            {
-                remoteVersion = chosenRelease.tag_name;
-                remoteUrl = chosenRelease.html_url;
-                Debug.Log($"Latest remote version: {remoteVersion}");
-                VersionLookup(branchIndex);
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError("Failed to parse GitHub releases: " + e.Message);
+            catch { }
         }
     }
 
@@ -117,13 +110,11 @@ public class UpdateManager : MonoBehaviour
 
         if (branchIndex == 0)
         {
-            // Stable branch: only consider stable releases
             if (!remoteSem.IsPreRelease && remoteSem > localSem)
                 newerAvailable = true;
         }
         else
         {
-            // Pre-release branch: consider any newer release
             if (remoteSem > localSem)
                 newerAvailable = true;
         }
@@ -134,12 +125,12 @@ public class UpdateManager : MonoBehaviour
             remoteVersionLabel.text = "New Version: " + remoteVersion;
             updateNotification.SetActive(true);
 
-            // Optionally: add a button click to open release
-            // yourButton.onClick.AddListener(() => Application.OpenURL(remoteUrl));
+            Debug.LogWarning($"Update available! Local: {localVersion}, Remote: {remoteVersion}");
         }
         else
         {
             updateNotification.SetActive(false);
+            Debug.LogWarning("No update available");
         }
     }
 
@@ -165,7 +156,6 @@ public class UpdateManager : MonoBehaviour
             {
                 Numeric = new Version(0, 0, 0);
                 PreRelease = null;
-                Debug.LogWarning("Invalid version string: " + raw);
             }
         }
 
@@ -188,7 +178,6 @@ public class UpdateManager : MonoBehaviour
 }
 
 // ---------------- JSON Helper ----------------
-// GitHub returns an array of releases, so Unity can't directly parse it as a single object
 [Serializable]
 public class GitHubRelease
 {
