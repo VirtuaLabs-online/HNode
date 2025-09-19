@@ -46,6 +46,7 @@ jobs:
 
       # Set Unity Bundle version from tag
       - name: Set Unity Version
+        if: startsWith(github.ref, 'refs/tags/')   # only run on tag builds
         run: |
           # Extract tag name
           TAG=${GITHUB_REF#refs/tags/}
