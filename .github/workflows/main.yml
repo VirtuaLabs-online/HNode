@@ -44,6 +44,14 @@ jobs:
 #        with:
 #          githubToken: ${{ secrets.GITHUB_TOKEN }}
 
+      # Set Unity Bundle version from tag
+      - name: Set Unity Version
+        if: startsWith(github.ref, 'refs/tags/')   # only run on tag builds
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "Setting Unity version to $VERSION"
+          sed -i "s/m_BundleVersion:.*/m_BundleVersion: $VERSION/" ProjectSettings/ProjectSettings.asset
+
       # Build
       - name: Build project
         uses: game-ci/unity-builder@v4.5.0
