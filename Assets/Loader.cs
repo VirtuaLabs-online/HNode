@@ -33,9 +33,9 @@ public class Loader : MonoBehaviour
 
     void Start()
     {
-        spoutReceiver = FindFirstObjectByType<SpoutReceiver>();
-        spoutSender = FindFirstObjectByType<SpoutSender>();
-        artNetReceiver = FindFirstObjectByType<ArtNetReceiver>();
+        spoutReceiver = FindAnyObjectByType<SpoutReceiver>();
+        spoutSender = FindAnyObjectByType<SpoutSender>();
+        artNetReceiver = FindAnyObjectByType<ArtNetReceiver>();
 
         //load in all the serializers
         serializers = GetAllInterfaceImplementations<IDMXSerializer>();
