@@ -48,8 +48,18 @@ jobs:
       - name: Set Unity Version
         if: startsWith(github.ref, 'refs/tags/')   # only run on tag builds
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "Setting Unity version to $VERSION"
+          # Extract tag name
+          TAG=${GITHUB_REF#refs/tags/}
+
+          # Strip leading 'v' if present
+          VERSION=${TAG#v}
+
+          # Remove any pre-release suffix (e.g., -beta1, -alpha2)
+          VERSION=${VERSION%%-*}
+
+          echo "Setting Unity BundleVersion to $VERSION"
+
+          # Apply to ProjectSettings.asset
           sed -i "s/m_BundleVersion:.*/m_BundleVersion: $VERSION/" ProjectSettings/ProjectSettings.asset
 
       # Build
@@ -72,7 +82,7 @@ jobs:
         with:
           name: Windows Portable Build
           path: Builds
-      
+
       # Get nsis
       - name: Install NSIS
         run: |
@@ -84,7 +94,7 @@ jobs:
         uses: joncloud/makensis-action@v4.1
         with:
           script-file: .github/scripts/installer.nsi
-      
+
       # Upload installer
       - name: Upload Windows Installer
         uses: actions/upload-artifact@v4
