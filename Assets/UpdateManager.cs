@@ -12,6 +12,7 @@ public class UpdateManager : MonoBehaviour
     public TextMeshProUGUI remoteVersionLabel;
     public GameObject updateNotification;
     public TMP_Dropdown branchDropdown;
+    public GameObject UpdatePromptButton;
 
     [Header("GitHub Info")]
     public string githubOwner = "VirtuaLabs-online";
@@ -26,6 +27,8 @@ public class UpdateManager : MonoBehaviour
     void Start()
     {
         logoVersionLabel.gameObject.SetActive(false);
+        UpdatePromptButton.SetActive(false);
+        updateNotification.SetActive(false);
         savedIndex = PlayerPrefs.GetInt("SelectedBranch", 0);
         branchDropdown.value = savedIndex;
         branchDropdown.onValueChanged.Invoke(savedIndex);
@@ -124,13 +127,12 @@ public class UpdateManager : MonoBehaviour
             localVersionLabel.text = "Current Version: " + localVersion;
             remoteVersionLabel.text = "New Version: " + remoteVersion;
             updateNotification.SetActive(true);
-
-            Debug.LogWarning($"Update available! Local: {localVersion}, Remote: {remoteVersion}");
+            UpdatePromptButton.SetActive(true);
         }
         else
         {
             updateNotification.SetActive(false);
-            Debug.LogWarning("No update available");
+            UpdatePromptButton.SetActive(false);
         }
     }
 
@@ -175,7 +177,24 @@ public class UpdateManager : MonoBehaviour
         public static bool operator >=(SemanticVersion a, SemanticVersion b) => a.CompareTo(b) >= 0;
         public static bool operator <=(SemanticVersion a, SemanticVersion b) => a.CompareTo(b) <= 0;
     }
+    public void OpenLatestRelease()
+    {
+        if (string.IsNullOrEmpty(remoteVersion))
+        {
+            return;
+        }
+
+        string url = $"https://github.com/{githubOwner}/{githubRepo}/releases/tag/{remoteVersion}";
+        Application.OpenURL(url);
+    }
+
+
+    public void DismissUpdateNotification()
+    {
+        updateNotification.SetActive(false);
+    }
 }
+
 
 // ---------------- JSON Helper ----------------
 [Serializable]
