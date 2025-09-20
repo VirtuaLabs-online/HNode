@@ -1,8 +1,8 @@
 using System;
-using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
+using Semver;
 
 public class UpdateManager : MonoBehaviour
 {
@@ -18,10 +18,9 @@ public class UpdateManager : MonoBehaviour
     public string githubOwner = "VirtuaLabs-online";
     public string githubRepo = "HNode";
 
-    private string localVersion; // numeric only
+    private string localVersion;
     private string remoteVersion;
     private string remoteUrl;
-
     private int savedIndex = 0;
 
     void Start()
@@ -33,10 +32,8 @@ public class UpdateManager : MonoBehaviour
         branchDropdown.value = savedIndex;
         branchDropdown.onValueChanged.Invoke(savedIndex);
         branchDropdown.onValueChanged.AddListener(OnBranchChanged);
-
         localVersion = Application.version;
-
-        Invoke(nameof(FetchInitialRelease), 1f); // calls after 1 second
+        Invoke(nameof(FetchInitialRelease), 1f);
     }
 
     private void FetchInitialRelease()
@@ -54,30 +51,24 @@ public class UpdateManager : MonoBehaviour
     private void ChangeReleaseBranch(int releaseBranch)
     {
         if (releaseBranch != 0 && releaseBranch != 1) return;
-
         logoVersionLabel.text = "HNode ver " + localVersion;
         logoVersionLabel.gameObject.SetActive(true);
-
-        FetchLatestReleaseSync(releaseBranch); // blocking call
+        FetchLatestReleaseSync(releaseBranch);
     }
 
     private void FetchLatestReleaseSync(int branchIndex)
     {
         string apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases";
-
         using (UnityWebRequest request = UnityWebRequest.Get(apiUrl))
         {
             request.SetRequestHeader("User-Agent", "UnityUpdateManager");
             var operation = request.SendWebRequest();
-
-            while (!operation.isDone) { } // block thread
-
+            while (!operation.isDone) { }
             if (request.result != UnityWebRequest.Result.Success) return;
 
             try
             {
                 var releases = JsonHelper.FromJson<GitHubRelease>(request.downloadHandler.text);
-
                 GitHubRelease chosenRelease = null;
                 foreach (var r in releases)
                 {
@@ -106,19 +97,19 @@ public class UpdateManager : MonoBehaviour
 
     private void VersionLookup(int branchIndex)
     {
-        var localSem = new SemanticVersion(localVersion);
-        var remoteSem = new SemanticVersion(remoteVersion);
+        var localSem = SemVersion.Parse(localVersion, SemVersionStyles.Any);
+        var remoteSem = SemVersion.Parse(remoteVersion, SemVersionStyles.Any);
 
         bool newerAvailable = false;
 
         if (branchIndex == 0)
         {
-            if (!remoteSem.IsPreRelease && remoteSem > localSem)
+            if (!remoteSem.IsPrerelease && remoteSem.ComparePrecedenceTo(localSem) > 0)
                 newerAvailable = true;
         }
         else
         {
-            if (remoteSem > localSem)
+            if (remoteSem.ComparePrecedenceTo(localSem) > 0)
                 newerAvailable = true;
         }
 
@@ -136,58 +127,12 @@ public class UpdateManager : MonoBehaviour
         }
     }
 
-    // ---------------- Semantic Version Class ----------------
-    private class SemanticVersion : IComparable<SemanticVersion>
-    {
-        public Version Numeric { get; private set; }
-        public string PreRelease { get; private set; }
-        public bool IsPreRelease => !string.IsNullOrEmpty(PreRelease);
-
-        public SemanticVersion(string raw)
-        {
-            if (raw.StartsWith("v", StringComparison.OrdinalIgnoreCase))
-                raw = raw.Substring(1);
-
-            var match = Regex.Match(raw, @"^(\d+(\.\d+){0,2})(?:-([\w\d]+))?$");
-            if (match.Success)
-            {
-                Numeric = new Version(match.Groups[1].Value);
-                PreRelease = match.Groups[3].Value;
-            }
-            else
-            {
-                Numeric = new Version(0, 0, 0);
-                PreRelease = null;
-            }
-        }
-
-        public int CompareTo(SemanticVersion other)
-        {
-            int numComp = Numeric.CompareTo(other.Numeric);
-            if (numComp != 0) return numComp;
-
-            if (IsPreRelease && !other.IsPreRelease) return -1;
-            if (!IsPreRelease && other.IsPreRelease) return 1;
-
-            return string.Compare(PreRelease, other.PreRelease, StringComparison.OrdinalIgnoreCase);
-        }
-
-        public static bool operator >(SemanticVersion a, SemanticVersion b) => a.CompareTo(b) > 0;
-        public static bool operator <(SemanticVersion a, SemanticVersion b) => a.CompareTo(b) < 0;
-        public static bool operator >=(SemanticVersion a, SemanticVersion b) => a.CompareTo(b) >= 0;
-        public static bool operator <=(SemanticVersion a, SemanticVersion b) => a.CompareTo(b) <= 0;
-    }
     public void OpenLatestRelease()
     {
-        if (string.IsNullOrEmpty(remoteVersion))
-        {
-            return;
-        }
-
+        if (string.IsNullOrEmpty(remoteVersion)) return;
         string url = $"https://github.com/{githubOwner}/{githubRepo}/releases/tag/{remoteVersion}";
         Application.OpenURL(url);
     }
-
 
     public void DismissUpdateNotification()
     {
@@ -195,8 +140,6 @@ public class UpdateManager : MonoBehaviour
     }
 }
 
-
-// ---------------- JSON Helper ----------------
 [Serializable]
 public class GitHubRelease
 {
