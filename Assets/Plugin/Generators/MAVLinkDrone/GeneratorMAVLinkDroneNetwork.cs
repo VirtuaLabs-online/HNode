@@ -80,23 +80,28 @@ namespace Generators.MAVLinkDrone
                 //convert the XYZ to bytes
                 //do this by converting them to -1 to 1 range from -800 to 800
                 Vector3 pos = d.GetDronePosition();
+                //pos = new Vector3(0, 0, 0);
                 //Debug.Log($"Drone {d.uid} position: {pos.x}, {pos.y}, {pos.z}");
                 float scaledX = Mathf.InverseLerp(-800, 800, pos.x);
                 float scaledY = Mathf.InverseLerp(-800, 800, pos.y);
                 float scaledZ = Mathf.InverseLerp(-800, 800, pos.z);
 
                 //convert to 16 bit ushorts
-                ushort x = (ushort)(scaledX * ushort.MaxValue);
-                ushort y = (ushort)(scaledY * ushort.MaxValue);
-                ushort z = (ushort)(scaledZ * ushort.MaxValue);
+                var x = new Util.CoarseFineChannelSet(scaledX);
+                var y = new Util.CoarseFineChannelSet(scaledY);
+                var z = new Util.CoarseFineChannelSet(scaledZ);
+
+                //Debug.Log($"Drone {d.uid} X scaled: {scaledX}, ushort: {x}, scaled back up: {Mathf.Lerp(-800, 800, (float)x / ushort.MaxValue)}");
+
+                //Debug.Log($"{x.coarse}, {x.fine}");
 
                 //merge into a single list
                 List<byte> droneValues = new List<byte>();
 
                 //append to dmxData
-                droneValues.AddRange(BitConverter.GetBytes(x).Reverse());
-                droneValues.AddRange(BitConverter.GetBytes(y).Reverse());
-                droneValues.AddRange(BitConverter.GetBytes(z).Reverse());
+                droneValues.AddRange(x.ToList());
+                droneValues.AddRange(y.ToList());
+                droneValues.AddRange(z.ToList());
 
 
                 if (pyroFeature)

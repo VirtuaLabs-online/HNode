@@ -40,6 +40,52 @@ public static class Util
         }
     }
 
+    public class CoarseFineChannelSet
+    {
+        public byte coarse;
+        public byte fine;
+
+        public CoarseFineChannelSet(byte coarse, byte fine)
+        {
+            this.coarse = coarse;
+            this.fine = fine;
+        }
+
+        public CoarseFineChannelSet(float value)
+        {
+            var channelSet = GetCoarseFineChannelRepresentation(value);
+            this.coarse = channelSet.coarse;
+            this.fine = channelSet.fine;
+        }
+
+        /// <summary>
+        /// Converts a float value between 0 and 1 to a coarse/fine byte array representation.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static CoarseFineChannelSet GetCoarseFineChannelRepresentation(float value)
+        {
+            //convert to 16 bit value
+            ushort fullValue = (ushort)(Mathf.Clamp01(value) * ushort.MaxValue);
+            var bytes = System.BitConverter.GetBytes(fullValue);
+            return new CoarseFineChannelSet(bytes[1], bytes[0]);
+            /* byte coarse = (byte)Mathf.Floor(value * byte.MaxValue);
+
+            //get a remainding ammount
+            double usedbycoarse = Mathf.Floor(value * byte.MaxValue) / byte.MaxValue;
+            double newvalue = (value - usedbycoarse);
+
+            byte fine = (byte)Mathf.Round((float)(newvalue * 256 * 255));
+
+            return new CoarseFineChannelSet(coarse, fine); */
+        }
+
+        public List<byte> ToList()
+        {
+            return new List<byte> { coarse, fine };
+        }
+    }
+
     public static void SetLeft(this RectTransform rt, float left)
     {
         rt.offsetMin = new Vector2(left, rt.offsetMin.y);
