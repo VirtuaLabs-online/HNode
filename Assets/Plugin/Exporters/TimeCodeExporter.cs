@@ -209,9 +209,9 @@ public class TimeCodeExporter : IExporter
 
         List<byte> data = new List<byte>();
         data.AddRange(IntToBigEndianBytes(utcMillis));
-        data.AddRange(LongToBigEndianBytes(currentUtcMillis));
         //add frames as the 5th byte
         data.Add(frames);
+        data.AddRange(LongToBigEndianBytes(currentUtcMillis));
 
         // Debug.Log(timeCode);
 
