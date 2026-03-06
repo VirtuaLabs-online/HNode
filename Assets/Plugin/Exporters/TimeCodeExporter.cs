@@ -171,36 +171,25 @@ public class TimeCodeExporter : IExporter
         // throw new System.NotImplementedException();
     }
 
-    public static byte[] ToBigEndianBytes<T>(T value) where T : struct
+    public static byte[] IntToBigEndianBytes(int value)
     {
         // Get the bytes based on the host system's architecture.
-        byte[] bytes;
-        switch (Type.GetTypeCode(typeof(T)))
-        {
-            case TypeCode.Int16:
-                bytes = BitConverter.GetBytes((short)(object)value);
-                break;
-            case TypeCode.UInt16:
-                bytes = BitConverter.GetBytes((ushort)(object)value);
-                break;
-            case TypeCode.Int32:
-                bytes = BitConverter.GetBytes((int)(object)value);
-                break;
-            case TypeCode.UInt32:
-                bytes = BitConverter.GetBytes((uint)(object)value);
-                break;
-            case TypeCode.Int64:
-                bytes = BitConverter.GetBytes((long)(object)value);
-                break;
-            case TypeCode.UInt64:
-                bytes = BitConverter.GetBytes((ulong)(object)value);
-                break;
-            default:
-                throw new ArgumentException("Unsupported type");
-        }
+        byte[] bytes = BitConverter.GetBytes(value);
         
         // C# runs mostly on little-endian systems. Network byte order is big-endian.
         // If the host is little-endian, we need to reverse the bytes to get big-endian order.
+        if (BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(bytes);
+        }
+
+        return bytes;
+    }
+
+    public static byte[] LongToBigEndianBytes(ulong value)
+    {
+        byte[] bytes = BitConverter.GetBytes(value);
+        
         if (BitConverter.IsLittleEndian)
         {
             Array.Reverse(bytes);
@@ -219,8 +208,8 @@ public class TimeCodeExporter : IExporter
         ulong currentUtcMillis = (ulong)(DateTime.UtcNow - DateTime.UnixEpoch).TotalMilliseconds;
 
         List<byte> data = new List<byte>();
-        data.AddRange(ToBigEndianBytes(utcMillis));
-        data.AddRange(ToBigEndianBytes(currentUtcMillis));
+        data.AddRange(IntToBigEndianBytes(utcMillis));
+        data.AddRange(LongToBigEndianBytes(currentUtcMillis));
         //add frames as the 5th byte
         data.Add(frames);
 
