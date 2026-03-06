@@ -216,7 +216,7 @@ public class TimeCodeExporter : IExporter
         int utcMillis = (int)(timeCode.TotalMilliseconds);
 
         //get the current UTC time aswell
-        int currentUtcMillis = (int)(DateTime.UtcNow - DateTime.UnixEpoch).TotalMilliseconds;
+        ulong currentUtcMillis = (ulong)(DateTime.UtcNow - DateTime.UnixEpoch).TotalMilliseconds;
 
         List<byte> data = new List<byte>();
         data.AddRange(ToBigEndianBytes(utcMillis));
